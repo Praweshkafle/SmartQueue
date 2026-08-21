@@ -1,0 +1,5 @@
+@SmartQueue.API_HostAddress = https://localhost:5139
+
+GET https://localhost:5139/
+Accept: application/json
+###
