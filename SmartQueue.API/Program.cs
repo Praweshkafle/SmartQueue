@@ -20,6 +20,9 @@ builder.AddSerilog();
 // ── Database ───────────────────────────────────────────────
 // Railway provides DATABASE_URL, local uses appsettings.json
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+Console.WriteLine(
+    $"DATABASE_URL present: {!string.IsNullOrWhiteSpace(databaseUrl)}"
+);
 string dbConnectionString;
 
 if (!string.IsNullOrEmpty(databaseUrl))
