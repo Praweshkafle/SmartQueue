@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using SmartQueue.Infrastructure.Persistence;
 
 namespace SmartQueue.API.Extensions;
@@ -9,8 +10,36 @@ public static class DatabaseExtension
         this IServiceCollection services,
         IConfiguration config)
     {
+        
+        // --- 1. POSTGRESQL (Npgsql) SETUP ---
+        string dbConnectionString;
+        var envDatabaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+
+        if (!string.IsNullOrEmpty(envDatabaseUrl))
+        {
+            // Convert Railway's database URL format to standard Npgsql format
+            var databaseUri = new Uri(envDatabaseUrl);
+            var userInfo = databaseUri.UserInfo.Split(':');
+
+            dbConnectionString = new NpgsqlConnectionStringBuilder
+            {
+                Host = databaseUri.Host,
+                Port = databaseUri.Port,
+                Username = userInfo[0],
+                Password = userInfo[1],
+                Database = databaseUri.LocalPath.TrimStart('/'),
+                SslMode = SslMode.Require, // Railway PostgreSQL requires SSL in production
+                TrustServerCertificate = true
+            }.ToString();
+        }
+        else
+        {
+            // Fallback to local appsettings.json for local development
+            dbConnectionString = config.GetConnectionString("DefaultConnection");
+        }
+        
         services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(config.GetConnectionString("DefaultConnection")));
+            options.UseNpgsql(dbConnectionString));
 
         return services;
     }
