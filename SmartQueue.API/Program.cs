@@ -4,20 +4,40 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using MediatR;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using SmartQueue.API.Extensions;
 using SmartQueue.API.Middleware;
 using SmartQueue.Application.Auth.Commands.Register;
 using SmartQueue.Application.Common;
 using SmartQueue.Application.Tokens.Commands.IssueToken;
 using SmartQueue.Infrastructure.Jobs;
+using SmartQueue.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddSerilog();
-var dbConnectionString =
-    DatabaseExtension.GetDatabaseConnectionString(builder.Configuration);
 
-builder.Services.AddDatabase(builder.Configuration);
+// ── Database ───────────────────────────────────────────────
+// Railway provides DATABASE_URL, local uses appsettings.json
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+string dbConnectionString;
+
+if (!string.IsNullOrEmpty(databaseUrl))
+{
+    // parse Railway's postgresql://user:password@host:port/db format
+    var uri = new Uri(databaseUrl);
+    var userInfo = uri.UserInfo.Split(':');
+    dbConnectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]}";
+}
+else
+{
+    // local development — use appsettings.json
+    dbConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+}
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(dbConnectionString));
+
 // Redis
 builder.Services.AddStackExchangeRedisCache(options =>
 {
