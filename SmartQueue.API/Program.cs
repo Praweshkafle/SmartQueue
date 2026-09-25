@@ -164,7 +164,7 @@ app.Use(async (context, next) =>
 });
 
 app.UseSerilogAndCorrelation();
-
+app.MigrateDatabase();
 app.UseSwaggerDocs();
 app.UseHttpsRedirection();
 app.UseAuthentication();
