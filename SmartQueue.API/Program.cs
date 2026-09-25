@@ -94,7 +94,6 @@ builder.Services.AddSwaggerDocs();
 
 var app = builder.Build();
 
-app.MigrateDatabase();
 
 app.Use(async (context, next) =>
 {
