@@ -12,6 +12,7 @@ using SmartQueue.Application.Common;
 using SmartQueue.Application.Tokens.Commands.IssueToken;
 using SmartQueue.Infrastructure.Jobs;
 using SmartQueue.Infrastructure.Persistence;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -55,6 +56,7 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.Configuration = builder.Configuration
         .GetConnectionString("Redis");
 });
+
 // 1. Correct FluentValidation registration
 builder.Services.AddValidatorsFromAssembly(typeof(RegisterCommand).Assembly);
 
@@ -162,6 +164,31 @@ app.Use(async (context, next) =>
         });
     }
 });
+
+try
+{
+    var redisConnection = await ConnectionMultiplexer.ConnectAsync(
+        builder.Configuration.GetConnectionString("Redis")!
+    );
+
+    var db = redisConnection.GetDatabase();
+
+    await db.StringSetAsync(
+        "smartqueue:test",
+        "connected",
+        TimeSpan.FromMinutes(5)
+    );
+
+    var value = await db.StringGetAsync("smartqueue:test");
+
+    Console.WriteLine($"Redis test value: {value}");
+
+    await redisConnection.CloseAsync();
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Redis connection failed: {ex.Message}");
+}
 
 app.UseSerilogAndCorrelation();
 app.MigrateDatabase();
