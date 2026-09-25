@@ -27,7 +27,15 @@ if (!string.IsNullOrEmpty(databaseUrl))
     // parse Railway's postgresql://user:password@host:port/db format
     var uri = new Uri(databaseUrl);
     var userInfo = uri.UserInfo.Split(':');
-    dbConnectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]}";
+    dbConnectionString =
+        $"Host={uri.Host};" +
+        $"Port={uri.Port};" +
+        $"Database={uri.AbsolutePath.TrimStart('/')};" +
+        $"Username={userInfo[0]};" +
+        $"Password={userInfo[1]};" +
+        $"SSL Mode=Require;" +
+        $"Trust Server Certificate=true;";
+    
 }
 else
 {
