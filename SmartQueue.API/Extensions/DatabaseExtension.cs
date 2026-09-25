@@ -10,6 +10,9 @@ public static class DatabaseExtension
     {
         var envDatabaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 
+        Console.WriteLine(
+            $"DATABASE_URL exists: {!string.IsNullOrWhiteSpace(envDatabaseUrl)}");
+        
         if (!string.IsNullOrWhiteSpace(envDatabaseUrl))
         {
             var databaseUri = new Uri(envDatabaseUrl);
