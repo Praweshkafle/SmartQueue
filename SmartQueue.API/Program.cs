@@ -51,10 +51,13 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(dbConnectionString));
 
 // Redis
+var redisConnectionString =
+    Environment.GetEnvironmentVariable("REDIS_URL")
+    ?? builder.Configuration.GetConnectionString("Redis");
+
 builder.Services.AddStackExchangeRedisCache(options =>
 {
-    options.Configuration = builder.Configuration
-        .GetConnectionString("Redis");
+    options.Configuration = redisConnectionString;
 });
 
 // 1. Correct FluentValidation registration
