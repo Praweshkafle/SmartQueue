@@ -14,10 +14,10 @@ using SmartQueue.Infrastructure.Jobs;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddSerilog();
-builder.Services.AddDatabase(builder.Configuration);
-// builder.Services.AddDbContext<AppDbContext>(option =>
-//     option.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+var dbConnectionString =
+    DatabaseExtension.GetDatabaseConnectionString(builder.Configuration);
 
+builder.Services.AddDatabase(builder.Configuration);
 // Redis
 builder.Services.AddStackExchangeRedisCache(options =>
 {
@@ -80,8 +80,7 @@ builder.Services.AddHangfire(config =>
         .UseRecommendedSerializerSettings()
         .UsePostgreSqlStorage(options =>
         {
-            options.UseNpgsqlConnection(
-                builder.Configuration.GetConnectionString("DefaultConnection"));
+            options.UseNpgsqlConnection(dbConnectionString);
         });
 });
 builder.Services.AddHangfireServer();
