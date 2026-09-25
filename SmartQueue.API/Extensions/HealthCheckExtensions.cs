@@ -1,4 +1,6 @@
-﻿namespace SmartQueue.API.Extensions;
+﻿using Microsoft.Extensions.Diagnostics.HealthChecks;
+
+namespace SmartQueue.API.Extensions;
 
 public static class HealthCheckExtensions
 {
@@ -6,22 +8,46 @@ public static class HealthCheckExtensions
         this IServiceCollection services,
         IConfiguration config)
     {
-        services.AddHealthChecks()
-            .AddNpgSql(
-                config.GetConnectionString("DefaultConnection")!,
+        var healthChecks = services.AddHealthChecks();
+
+        var dbConnection = config.GetConnectionString("DefaultConnection");
+        var redisConnection = config.GetConnectionString("Redis");
+
+        if (!string.IsNullOrEmpty(dbConnection))
+            healthChecks.AddNpgSql(
+                dbConnection,
                 name: "postgresql",
-                tags: new[] { "ready", "db" })
-            .AddRedis(
-                config.GetConnectionString("Redis")!,
+                tags: new[] { "ready", "db" });
+
+        if (!string.IsNullOrEmpty(redisConnection))
+            healthChecks.AddRedis(
+                redisConnection,
                 name: "redis",
                 tags: new[] { "ready", "cache" });
 
         return services;
     }
 
+    public static WebApplication UseHealthChecks(this WebApplication app)
+    {
+        app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+        {
+            Predicate = _ => false,
+            ResponseWriter = WriteResponse
+        });
+
+        app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+        {
+            Predicate = check => check.Tags.Contains("ready"),
+            ResponseWriter = WriteResponse
+        });
+
+        return app;
+    }
+
     public static Task WriteResponse(
         HttpContext context,
-        Microsoft.Extensions.Diagnostics.HealthChecks.HealthReport report)
+        HealthReport report)
     {
         context.Response.ContentType = "application/json";
 
