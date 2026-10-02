@@ -5,6 +5,7 @@ using Hangfire.PostgreSql;
 using MediatR;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using SmartQueue.API.Extensions;
 using SmartQueue.API.Middleware;
 using SmartQueue.Application.Auth.Commands.Register;
@@ -50,15 +51,26 @@ else
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(dbConnectionString));
 
-// Redis
-var redisConnectionString =
-    Environment.GetEnvironmentVariable("REDIS_URL")
-    ?? builder.Configuration.GetConnectionString("Redis");
+// ── Redis ──────────────────────────────────────────────────
+var redisUrl = Environment.GetEnvironmentVariable("REDIS_URL");
+string redisConnectionString;
+
+if (!string.IsNullOrEmpty(redisUrl))
+{
+    // parse Railway's redis://user:password@host:port format
+    var uri = new Uri(redisUrl);
+    var password = uri.UserInfo.Split(':')[1];
+    redisConnectionString = $"{uri.Host}:{uri.Port},password={password}";
+}
+else
+{
+    // local development
+    redisConnectionString = builder.Configuration.GetConnectionString("Redis")!;
+}
 
 builder.Services.AddStackExchangeRedisCache(options =>
-{
-    options.Configuration = redisConnectionString;
-});
+    options.Configuration = redisConnectionString);
+
 
 // 1. Correct FluentValidation registration
 builder.Services.AddValidatorsFromAssembly(typeof(RegisterCommand).Assembly);
@@ -130,6 +142,18 @@ builder.Services.AddSwaggerDocs();
 
 var app = builder.Build();
 
+// ── Redis connection test ──────────────────────────────────
+try
+{
+    var cache = app.Services.GetRequiredService<IDistributedCache>();
+    await cache.SetStringAsync("startup-test", "Redis is working on Railway!");
+    var value = await cache.GetStringAsync("startup-test");
+    Console.WriteLine($"=== REDIS TEST: {value} ===");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"=== REDIS FAILED: {ex.Message} ===");
+}
 
 app.Use(async (context, next) =>
 {
@@ -167,31 +191,6 @@ app.Use(async (context, next) =>
         });
     }
 });
-
-try
-{
-    var redisConnection = await ConnectionMultiplexer.ConnectAsync(
-        builder.Configuration.GetConnectionString("Redis")!
-    );
-
-    var db = redisConnection.GetDatabase();
-
-    await db.StringSetAsync(
-        "smartqueue:test",
-        "connected",
-        TimeSpan.FromMinutes(5)
-    );
-
-    var value = await db.StringGetAsync("smartqueue:test");
-
-    Console.WriteLine($"Redis test value: {value}");
-
-    await redisConnection.CloseAsync();
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"Redis connection failed: {ex.Message}");
-}
 
 app.UseSerilogAndCorrelation();
 app.MigrateDatabase();
